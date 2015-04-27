@@ -1,0 +1,11 @@
+#SampleID	EnvType	O2_pres	Description
+mat_01	top	yes	first sample
+mat_02	top	yes	second sample
+mat_03	top	yes	third sample
+mat_04	middle	yes	fourth sample
+mat_05	middle	yes	fith sample
+mat_06	middle	no	sixth sample
+mat_07	bottom	no	seventh sample
+mat_08	bottom	no	eighth sample
+mat_09	bottom	no	ninth sample
+mat_10	bottom	no	tenth sample

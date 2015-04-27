@@ -1,0 +1,156 @@
+<html>
+
+<head>
+<title>Diversity Metrics of the Guerrero Dataset</title>
+</head>
+
+<body>
+<h2>Guerrero Dataset</h2>
+<p>Historically the Guerrero salt mats were thought to be very phylogenetically sparse - very high saline location which seemed to be extremely niche.  Culture methods bore out the limited diversity in the location.  However, after expanding the diversity measurements to include high-throughput metagenomic/microbiomic sequence data, a different picture was discovered.  Turns out this is one of the *most* phylogenetically diverse communities on the planet, with over 40 different phylum present.</p>
+<p>Beginning analysis on the guerrero dataset. There are 10 files associated with the Guerrero Mat data.  Each file corresponds to a different level from a column taken from the mat. The files are 16s gene data which was sanger sequenced, and therefore the full gene sequence.  Used an outside program to transpose the matrix from the uclust table output: <a href=http://sourceforge.net/projects/transpose/>transpose</a></p>
+
+<p>mat_01 - first layer (top)</p>
+<p>mat_02 - 2nd layer (top)</p>
+<p>mat_03 - 3rd layer (top)</p>
+<p>mat_04 - 4th layer (middle)</p>
+<p>mat_05 - 5th layer (middle)</p>
+<p>mat_06 - 6th layer (middle)</p>
+<p>mat_07 - 7th layer (bottom)</p>
+<p>mat_08 - 8th layer (bottom)</p>
+<p>mat_09 - 9th layer (bottom)</p>
+<p>mat_10 - 10th layer (bottom)</p>
+
+<p>Data input is fasta format of sanger sequenced 16s genes (truncated view):
+
+>gi|364589549|gb|JN437545.1|;barcodelabel=mat_01 Uncultured organism clone SBXZ_6525 16S ribosomal RNA gene, partial sequence
+ACACATGCAAGTCGAACGAAGCCCTCGGGCGTAGTGGCGGACGGGTGAGTAACGCGTGAGAATCTACCTT
+>gi|364589548|gb|JN437544.1|;barcodelabel=mat_01 Uncultured organism clone SBXZ_6524 16S ribosomal RNA gene, partial sequence
+CTTACACATGCAAGTCGAACGCAACGTTCGGGTTGAGTGGCGGACGGGTGAGTAACGCGTGAGAATCTGC
+>gi|364589547|gb|JN437543.1|;barcodelabel=mat_01 Uncultured organism clone SBXZ_6523 16S ribosomal RNA gene, partial sequence
+TGGCCCTACGGGGGAAAGATTATCGCCATAGGATGGGCCCGCGTCAGATTAGCTAGTTGGTAGGGTAACG
+</p>
+
+<p>I used the UCLUST algorithms, provided by Robert Edgar (which is part of the QIIME package, so you could do all the clustering through QIIME as well).  You can get the program <a href=http://www.drive5.com/usearch/>here</a>
+The commands I used to cluster the OTUs are as follows:</p>
+
+<p>$ usearch -derep_fulllength fasta_reads.fasta -output derep_fasta.fasta -sizeout</p>
+<p>$ usearch -sortbysize derep_fasta.fasta -output sorted -minsize 2</p>
+<p>$ usearch -cluster_otus sorted.fasta -otus old_otus.fasta</p>
+<p>$ python ~/programs/usearch/fasta_number.py old_otus.fasta OTU_ > otus.fasta</p>
+<p>$ usearch -usearch_global fasta_reads.fasta -db otus.fasta -strand plus -id 0.97 -uc readmap</p>
+<p>$ python ~/programs/usearch/uc2otutab.py readmap > table</p>
+<p>$ usearch8 -utax otus.fasta -db ~/Documents/rdp_16s.fa -strand plus -utax_rawscore -tt ~/Documents/rdp_16s.tt -utaxout utax</p>
+<p>$ transpose -i 6000x20 -t table >transposed_table
+</p>
+
+<!--begin.rcode
+# install packages (Run this before trying to knit - ctrl+enter on the line commented out to prevent error during knitting)
+install.packages(c("vegan", "ecodist", "labdsv", "ape", "ade4", "smacof", "GUniFrac"))
+ 
+# load packages
+library(vegan)
+library(ecodist)
+library(labdsv)
+library(ape)
+library(ade4)
+library(smacof)
+library(GUniFrac)
+dat <- read.table("~/projects/guerrero/transposed_table", header=TRUE,row.names=1, quote="\"")
+dat[1:5]
+dat.dist <-dist(dat)
+end.rcode-->
+
+<h2>Metric Multidimensional scaling:</h2>
+<p>There are multiple different ways of doing MDS, these are metric methods, which  <a href=http://www.r-bloggers.com/7-functions-to-do-metric-multidimensional-scaling-in-r/>you can see examples of here</a></p>
+
+<p>MDS with cmdscale</p>
+<!--begin.rcode
+# 1) MDS 'cmdscale'
+mds1 = cmdscale(dat.dist, k=2)
+# plot
+plot(mds1[,1], mds1[,2], type = "n", xlab = "", ylab = "", axes = FALSE,
+     main = "cmdscale (stats)")
+text(mds1[,1], mds1[,2], labels(dat.dist), cex=0.9)
+end.rcode-->
+<p>MDS with wcmdscale - Weighted Classical Multidimensional Scaling</p>
+<!--begin.rcode fig.width=7, fig.height=6
+# 1) MDS 'wcmdscale'
+mds1 = wcmdscale(dat.dist, k=2)
+# plot
+plot(mds1[,1], mds1[,2], type = "n", xlab = "", ylab = "", axes = FALSE,
+     main = "wcmdscale (vegan)")
+text(mds1[,1], mds1[,2], labels(dat.dist), cex=0.9)
+end.rcode-->
+<p>MDS with pco - Principal Coordinates Analysis</p>
+<!--begin.rcode fig.width=7, fig.height=6
+# 1) MDS
+mds3 = pco(dat.dist, k=2)
+# plot
+plot(mds3$points[,1], mds3$points[,2], type = "n", xlab = "", ylab = "",
+     axes = FALSE, main = "pco (ecodist)")
+text(mds3$points[,1], mds3$points[,2], labels(dat.dist), cex = 0.9)
+end.rcode-->
+<p>MDS with smocofSym - multidimensional scalling with stress minimization</p>
+<!--begin.rcode fig.width=7, fig.height=6
+# 7) MDS 'smacofSym'
+mds7 = smacofSym(dat.dist, ndim=2)
+# plot
+plot(mds7$conf[,1], mds7$conf[,2], type = "n", xlab = "", ylab = "",
+     axes = FALSE, main = "smacofSym (smacof)")
+text(mds7$conf[,1], mds7$conf[,2], labels(dat.dist), cex = 0.9)
+end.rcode-->
+
+<h2>Non-metric Multidimensional scaling:- see <a href=http://cc.oulu.fi/~jarioksa/opetus/metodi/vegantutor.pdf>here for more info</a></h2>
+
+<!--begin.rcode fig.width=7, fig.height=6
+dat.mds <- metaMDS(dat,trymax=50)
+plot(dat.mds)
+plot(dat.mds$points)
+end.rcode-->
+
+<!--begin.rcode fig.width=7, fig.height=6
+dat.mds.eucl <- metaMDS(dat, distance="euclidean", k=3, trymax=50, autotransform=FALSE)
+plot(dat.mds.eucl)
+end.rcode-->
+
+<!--begin.rcode fig.width=7, fig.height=6
+dat.mds.bray <- metaMDS(dat, distance="bray", k=3, trymax=50, autotransform=FALSE)
+plot(dat.mds.bray)
+end.rcode-->
+<h2>ANOSIM:- see <a href=http://cc.oulu.fi/~jarioksa/opetus/metodi/vegantutor.pdf>here for more info</a></h2>
+<!--begin.rcode fig.width=7, fig.height=6
+dat.vegdist <- vegdist(dat)
+groups = c("top","top","top","middle","middle","middle","bottom","bottom","bottom","bottom")
+dat.anosim <- anosim(dat.vegdist, grouping=groups, permutations = 999)
+dat.anosim
+summary(dat.anosim)
+plot(dat.anosim)
+end.rcode-->
+<h2>Procrustes- Comparing Ordinations : see <a href=http://cc.oulu.fi/~jarioksa/opetus/metodi/vegantutor.pdf>here for more info</a></h2>
+<p>Also, see <a href=http://www.ncbi.nlm.nih.gov/pmc/articles/PMC3413390/>here</a> for information on the unifrac distance method</p>
+<p>Here we will compare using a unifrac distance matrix to a Bray-curtis distance matrix.  It is important to note a couple of things, first there is no unifrac distance calculator in vegan (that I could find), so we need a new package (which I called earlier in the script).  Second unifrac distances is actually based on a tree, and how the sequences from each sample fall on that tree.  Therefore, you need to build a tree!  And perhaps more importantly, you need to build an alignment first, in order to build the tree. I did so with mafft, and then used FastTree to compute the tree.</p>
+<!--begin.rcode fig.width=7, fig.height=6
+dat.mds.bray <- metaMDS(dat, distance="bray", k=3, trymax=50, autotransform=FALSE)
+plot(dat.mds.bray$points)
+tree <- read.tree("~/projects/guerrero/otus.tree")
+rooted_tree = multi2di(root(tree, "OTU_5140"))
+dat.mds.unifrac <- GUniFrac(dat, rooted_tree, alpha=c(0,0.5,1))$unifracs
+dw <- dat.mds.unifrac[,,"d_1"] # Weighted UniFrac
+du <- dat.mds.unifrac[, , "d_UW"] # Unweighted UniFrac
+dv <- dat.mds.unifrac[, , "d_VAW"] # Variance adjusted weighted UniFrac
+d0 <- dat.mds.unifrac[, , "d_0"] # GUniFrac with alpha 0
+d5 <- dat.mds.unifrac[, , "d_0.5"] # GUniFrac with alpha 0.5
+plot(dw)
+plot(du)
+plot(dv)
+end.rcode-->
+
+<!--begin.rcode fig.width=7, fig.height=6
+#procrustes(dat.mds.bray, dat.mds.eucl)
+dat.mds.bray <-vegdist(dat, "bray")
+pro_test <-protest(dat.mds.bray, du)
+plot(pro_test)
+pro_test
+end.rcode-->
+</body>
+</html>
