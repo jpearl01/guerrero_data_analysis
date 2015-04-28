@@ -20,8 +20,8 @@
 <p>mat_09 - 9th layer (bottom)</p>
 <p>mat_10 - 10th layer (bottom)</p>
 
-<p>Data input is fasta format of sanger sequenced 16s genes (truncated view):
-
+<p>Data input is fasta format of sanger sequenced 16s genes (truncated view):</p>
+<p>
 >gi|364589549|gb|JN437545.1|;barcodelabel=mat_01 Uncultured organism clone SBXZ_6525 16S ribosomal RNA gene, partial sequence
 ACACATGCAAGTCGAACGAAGCCCTCGGGCGTAGTGGCGGACGGGTGAGTAACGCGTGAGAATCTACCTT
 >gi|364589548|gb|JN437544.1|;barcodelabel=mat_01 Uncultured organism clone SBXZ_6524 16S ribosomal RNA gene, partial sequence
@@ -45,7 +45,7 @@ The commands I used to cluster the OTUs are as follows:</p>
 
 <!--begin.rcode
 # install packages (Run this before trying to knit - ctrl+enter on the line commented out to prevent error during knitting)
-install.packages(c("vegan", "ecodist", "labdsv", "ape", "ade4", "smacof", "GUniFrac"))
+#install.packages(c("vegan", "ecodist", "labdsv", "ape", "ade4", "smacof", "GUniFrac"))
  
 # load packages
 library(vegan)
@@ -55,10 +55,136 @@ library(ape)
 library(ade4)
 library(smacof)
 library(GUniFrac)
+end.rcode-->
+
+<p>Great!  Now we are ready to get our data in Rows=sample locations, Columns=OTUs</p>
+<!--begin.rcode
 dat <- read.table("~/projects/guerrero/transposed_table", header=TRUE,row.names=1, quote="\"")
 dat[1:5]
-dat.dist <-dist(dat)
 end.rcode-->
+<p>If you've got a table in the form of the one above, congrats, you can pretty much start running these metrics immediately.  The normal way of calculating a distance matrix in R is:</p>
+<!--begin.rcode
+dat.dist <-dist(dat)
+#Formatting looks bad, lets round this a bit
+round(dat.dist,1)
+end.rcode-->
+<p>You can use several different ways of calculating a distance with 'dist', including: "euclidean", "maximum", "manhattan", "canberra", "binary" or "minkowski".  For example:</p>
+<!--begin.rcode
+dat.dist <-dist(dat, method = "manhattan")
+dat.dist
+end.rcode-->
+<p>Build a little heirarchical tree from this?  No problem</p>
+<!--begin.rcode fig.width=7, fig.height=6
+hc <- hclust(dat.dist)
+plot(hc)
+end.rcode-->
+<p>In Vegan, you can pretty much do the same thing, except you want to use vegdist, which gives you access to some different distance metrics, the full set of which are: "manhattan", "euclidean", "canberra", "bray", "kulczynski", "jaccard", "gower", "altGower", "morisita", "horn", "mountford", "raup" , "binomial", "chao", "cao" or "mahalanobis"</p>
+<!--begin.rcode
+dat.vdist <-vegdist(dat, method = "jaccard")
+#Formatting looks bad, so lets round this up a bit
+round(dat.vdist, 3)
+end.rcode-->
+
+
+<h2>Alpha Diversity</h2>
+<p>There are multiple different ways of doing alpha diversity, see  <a href=http://cran.r-project.org/web/packages/vegan/vignettes/diversity-vegan.pdf>here</a> for more information.</p>
+<p>Also, for more discussion on the meaning of these different indicies, please see <a href=http://folk.uio.no/ohammer/past/diversity.html>here</a> </p>
+<p>Shannon's Index (entropy):</p>
+<p>Takes into account the number of individuals as well as number of taxa. Varies from 0 for communities with only a single taxon to high values for communities with many taxa, each with few individuals.</p>
+<!--begin.rcode
+#Shannon's index
+shannon_H <- diversity(dat, "shannon")
+shannon_H
+end.rcode-->
+
+<p>Simpson's Index:</p>
+<p>Ranges from 0 (all taxa are equally present) to 1 (one taxon dominates the community completely)</p>
+<!--begin.rcode
+#Simpson's index
+simpson_H <- diversity(dat, "simpson")
+simpson_H
+end.rcode-->
+<p>Inverse Simpson's Index:</p>
+<!--begin.rcode
+#Inverse Simpson's index
+invsimpson_H <- diversity(dat, "invsimpson")
+invsimpson_H
+end.rcode-->
+<p>Chao1</p>
+<p>Way of estimating the number of unseen species and adding them to the observed species richness</p>
+<!--begin.rcode
+groups = c("top","top","top","middle","middle","middle","bottom","bottom","bottom","bottom")
+spec_richness <- specpool(dat)
+spec_richness$chao
+end.rcode-->
+<p>Vegan doesn't implement evenness, but we can calculate that (Pielous's eveness) ourselves with this code: </p>
+<p>(specnumber is a vegan function that gives the # of species in each sample)</p>
+<p>This measures the evenness with which individuals are divided among the taxa present.</p>
+<!--begin.rcode
+#Pielou's Evenness: J=H/log(S)
+J <- shannon_H/log(specnumber(dat))
+J
+end.rcode-->
+<p>Fisher's Alpha</p>
+<p>defined implicitly by the formula S=a*ln(1+n/a) where S is number of taxa, n is number of individuals and a is the Fisher's alpha.</p>
+<!--begin.rcode
+alpha <- fisher.alpha(dat)
+alpha
+end.rcode-->
+<p>Fisher's Log Series</p>
+<p>This is the expected number of species f_hat with n individuals - where Fisher's Alpha comes from</p>
+<!--begin.rcode
+k <- sample(nrow(dat), 1)
+fish <- fisherfit(dat[k,])
+fish
+end.rcode-->
+<p>Randomly selected location Fisher's log series</p>
+<!--begin.rcode fig.width=7, fig.height=6
+plot(fish)
+end.rcode-->
+<h2>Beta Diversity</h2>
+<p>Beta diversity seems like an especially tricky subject, please see the paper in this github repo by Allen et. al for addition information</p>
+<p>Vegan implements many different beta diversity metrics, if you would like to see which ones are available, check out 'betadiver', which has many, many implementations:</p>
+<!--begin.rcode
+betadiver(help=TRUE)
+end.rcode-->
+
+<p>The Sorensen index of dissimilarity (aka, binary Bray-Curtis)</p>
+<!--begin.rcode
+beta <- vegdist(dat, binary=TRUE)
+mean(beta)
+end.rcode-->
+
+
+<p>Unifrac Distance</p>
+<p>This is deceptively more complex.  It is important to note a couple of things, first there is no unifrac distance calculator in vegan (that I could find), so we need a new package (which I called earlier in the script, aka GUniFrac).  Second unifrac distances is actually based on a tree, and how the sequences from each sample fall on that tree.  Therefore, you need to build a tree!  And perhaps more importantly, you need to build an alignment first, in order to build the tree. I did so with mafft, and then used FastTree to compute the tree.  I would highly recommend you NOT do it this way, a better way would be to align sequences with Pynast (find in the QIIME package), which is slower but will help avoid issues like expoentially increasing gaps in your alignment.  FastTree or Raxml are your best options probably for building a tree from this alignment (my preference would be Raxml, but only because I've had good experiences with it in the past) </p>
+<p>First load in your tree from the file (here it is in newick format)</p>
+<p>Then you need to root it, since this is exploratory, choosing one of the longest branch lengths is about as good as you can hope for -- choosing a root is complicated and deserves it's own research.  Additionally you have to kill any polytomies as ape does not allow you to have a rooted tree with a polytomy (no zero length branches).  the function multi2di will randomly 'fix' this - questionable to downright wrong for 'real' data, so be aware</p>
+<!--begin.rcode
+tree <- read.tree("~/projects/guerrero/otus.tree")
+rooted_tree = multi2di(root(tree, "OTU_5140"))
+end.rcode-->
+
+<p>Then use the GUniFrac function to calculate your distances matrices, hopefully easy to see which is which from the code below:</p>
+<!--begin.rcode fig.width=7, fig.height=6
+dat.mds.unifrac <- GUniFrac(dat, rooted_tree, alpha=c(0,0.5,1))$unifracs
+dw <- dat.mds.unifrac[,,"d_1"] # Weighted UniFrac
+du <- dat.mds.unifrac[, , "d_UW"] # Unweighted UniFrac
+dv <- dat.mds.unifrac[, , "d_VAW"] # Variance adjusted weighted UniFrac
+d0 <- dat.mds.unifrac[, , "d_0"] # GUniFrac with alpha 0
+d5 <- dat.mds.unifrac[, , "d_0.5"] # GUniFrac with alpha 0.5
+plot(dw)
+plot(du)
+plot(dv)
+end.rcode-->
+<h2>Gamma Diversity</h2>
+<p>This is just the total number of unique species seen in all sites (not their abundance, just binary, i.e. "there was an elephant" not "there were 20 elephants").  This is very easy to calculate, you just need the number of columns:</p>
+<!--begin.rcode
+d <- dim(dat)
+d[2]
+end.rcode-->
+
+
 
 <h2>Metric Multidimensional scaling:</h2>
 <p>There are multiple different ways of doing MDS, these are metric methods, which  <a href=http://www.r-bloggers.com/7-functions-to-do-metric-multidimensional-scaling-in-r/>you can see examples of here</a></p>
@@ -128,22 +254,8 @@ plot(dat.anosim)
 end.rcode-->
 <h2>Procrustes- Comparing Ordinations : see <a href=http://cc.oulu.fi/~jarioksa/opetus/metodi/vegantutor.pdf>here for more info</a></h2>
 <p>Also, see <a href=http://www.ncbi.nlm.nih.gov/pmc/articles/PMC3413390/>here</a> for information on the unifrac distance method</p>
-<p>Here we will compare using a unifrac distance matrix to a Bray-curtis distance matrix.  It is important to note a couple of things, first there is no unifrac distance calculator in vegan (that I could find), so we need a new package (which I called earlier in the script).  Second unifrac distances is actually based on a tree, and how the sequences from each sample fall on that tree.  Therefore, you need to build a tree!  And perhaps more importantly, you need to build an alignment first, in order to build the tree. I did so with mafft, and then used FastTree to compute the tree.</p>
-<!--begin.rcode fig.width=7, fig.height=6
-dat.mds.bray <- metaMDS(dat, distance="bray", k=3, trymax=50, autotransform=FALSE)
-plot(dat.mds.bray$points)
-tree <- read.tree("~/projects/guerrero/otus.tree")
-rooted_tree = multi2di(root(tree, "OTU_5140"))
-dat.mds.unifrac <- GUniFrac(dat, rooted_tree, alpha=c(0,0.5,1))$unifracs
-dw <- dat.mds.unifrac[,,"d_1"] # Weighted UniFrac
-du <- dat.mds.unifrac[, , "d_UW"] # Unweighted UniFrac
-dv <- dat.mds.unifrac[, , "d_VAW"] # Variance adjusted weighted UniFrac
-d0 <- dat.mds.unifrac[, , "d_0"] # GUniFrac with alpha 0
-d5 <- dat.mds.unifrac[, , "d_0.5"] # GUniFrac with alpha 0.5
-plot(dw)
-plot(du)
-plot(dv)
-end.rcode-->
+<p>Here we will compare using a unifrac distance matrix to a Bray-curtis distance matrix.  </p>
+
 
 <!--begin.rcode fig.width=7, fig.height=6
 #procrustes(dat.mds.bray, dat.mds.eucl)
